@@ -733,7 +733,7 @@ For detailed setup and usage, see [mcp_server_module/README.md](https://github.c
 
 ## **The Nanonets Ecosystem**
 
-`DocStrange` is a powerful open-source library developed and maintained by the team at **Nanonets**. The full Nanonets platform** is an AI-driven solution for automating end-to-end document processing for businesses. The platform allows technical and non-technical teams to build complete automated document workflows.
+`DocStrange` is a powerful open-source library developed and maintained by the team at **Nanonets**. The full Nanonets platform is an AI-driven solution for automating end-to-end document processing for businesses. The platform allows technical and non-technical teams to build complete automated document workflows.
 
 ## **Community, Support, & License**
 
