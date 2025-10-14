@@ -6,9 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 DocStrange is a Python library for extracting and converting documents (PDFs, Word, Excel, PowerPoint, images, URLs) into multiple formats (Markdown, JSON, CSV, HTML) with intelligent content extraction and advanced OCR capabilities.
 
-The library offers three processing modes:
+The library offers two processing modes:
 - **Cloud Mode (default)**: Instant conversion using cloud API
-- **CPU Mode**: Local processing for privacy
 - **GPU Mode**: Local processing with GPU acceleration
 
 ## Commands
@@ -117,16 +116,10 @@ python -m twine upload dist/*
 - Authentication: `docstrange login` or API key
 - Best for: Quick processing without GPU
 
-### CPU Mode
-- Force with `cpu=True` parameter
-- Uses local neural models
-- Requires model downloads (~500MB first run)
-- Best for: Privacy-sensitive documents
-
 ### GPU Mode  
 - Force with `gpu=True` parameter
 - Requires CUDA-compatible GPU
-- Faster than CPU for large documents
+- Fastest local processing
 - Best for: Batch processing, high-volume workloads
 
 ## Authentication & Rate Limits
@@ -215,9 +208,6 @@ structured = result.extract_data(json_schema=schema)
 
 ### Force local processing
 ```python
-# CPU mode
-extractor = DocumentExtractor(cpu=True)
-
 # GPU mode (requires CUDA)
 extractor = DocumentExtractor(gpu=True)
 ```

@@ -38,7 +38,7 @@ DocStrange converts documents to Markdown, JSON, CSV, and HTML quickly and accur
 > Extract documents data instantly with the cloud processing - no complex setup needed 
 
 > **🔒 Local Processing !**  
-> Use `cpu` or `gpu` mode for 100% local processing - no data sent anywhere, everything stays on your machine.
+> Use `gpu` mode for 100% local processing - no data sent anywhere, everything stays on your machine.
 
 
 ## **What's New**
@@ -56,7 +56,7 @@ Convert and extract data from PDF, DOCX, images, and more into clean Markdown an
 
 `DocStrange` is a Python library for converting a wide range of document formats—including **PDF**, **DOCX**, **PPTX**, **XLSX**, and **images** — into clean, usable data. It produces LLM-optimized **Markdown**, structured **JSON** (with schema support), **HTML**, and **CSV** outputs, making it an ideal tool for preparing content for RAG pipelines and other AI applications.
 
-The library offers both a powerful cloud API and a 100% private, offline mode that runs locally on your CPU or GPU. Developed by **Nanonets**, DocStrange is built on a powerful pipeline of OCR and layout detection models and currently requires **Python >=3.8**.
+The library offers both a powerful cloud API and a 100% private, offline mode that runs locally on your GPU. Developed by **Nanonets**, DocStrange is built on a powerful pipeline of OCR and layout detection models and currently requires **Python >=3.8**.
 
 **To report a bug or request a feature, [please file an issue](https://github.com/NanoNets/docstrange/issues). To ask a question or request assistance, please use the [discussions forum](https://github.com/NanoNets/docstrange/discussions).**
 
@@ -185,12 +185,9 @@ print(structured_data)
 
 **Local Processing**
 
-For complete privacy and offline capability, run DocStrange entirely on your own machine. You can specify whether to use your CPU or GPU for processing.
+For complete privacy and offline capability, run DocStrange entirely on your own machine using GPU processing.
 
 ```python
-# Force local CPU processing
-extractor = DocumentExtractor(cpu=True)
-
 # Force local GPU processing (requires CUDA)
 extractor = DocumentExtractor(gpu=True)
 ```
@@ -201,7 +198,7 @@ extractor = DocumentExtractor(gpu=True)
 
 💡 Want a GUI? Run the simple, drag-and-drop local web interface for private, offline document conversion.
 
-For users who prefer a graphical interface, DocStrange includes a powerful, self-hosted web UI. This allows for easy drag-and-drop conversion of PDF, DOCX, and other files directly in your browser, with 100% private, offline processing on your own CPU or GPU. The interface automatically downloads required models on its first run.
+For users who prefer a graphical interface, DocStrange includes a powerful, self-hosted web UI. This allows for easy drag-and-drop conversion of PDF, DOCX, and other files directly in your browser, with 100% private, offline processing on your own GPU. The interface automatically downloads required models on its first run.
 
 ### How to get started?
 
@@ -230,9 +227,9 @@ python -c "from docstrange.web_app import run_web_app; run_web_app()"
 
 - 🖱️ Drag & Drop Interface: Simply drag files onto the upload area.
 - 📁 Multiple File Types: Supports PDF, DOCX, XLSX, PPTX, images, and more.
-- ⚙️ Processing Modes: Choose between Local CPU and Local GPU processing.
+- ⚙️ Processing Modes: Choose between Cloud and Local GPU processing.
 - 📊 Multiple Output Formats: Get Markdown, HTML, JSON, CSV, and Flat JSON.
-- 🔒 100% Local Processing: No data leaves your machine.
+- 🔒 Privacy Options: Choose between cloud processing (default) or local GPU processing.
 - 📱 Responsive Design: Works on desktop, tablet, and mobile
 
 ### **Supported File Types:**
@@ -245,9 +242,8 @@ python -c "from docstrange.web_app import run_web_app; run_web_app()"
 
 ### **Processing Modes:**
 
-- **Local CPU**: Works offline, slower but private (default)
+- **Cloud processing:** For instant, zero-setup conversion, you can head over to [docstrange.nanonets.com](http://docstrange.nanonets.com/) **—** no setup (default)
 - **Local GPU**: Fastest local processing, requires CUDA support
-- **Cloud processing:** For instant, zero-setup conversion, you can head over to [docstrange.nanonets.com](http://docstrange.nanonets.com/) **—** no setup
 
 ### **Output Formats:**
 
@@ -295,7 +291,7 @@ docstrange web --port 8001
 
 - The interface automatically detects GPU availability
 - GPU option will be disabled if CUDA is not available
-- CPU mode will be selected automatically
+- Error will be thrown
 
 3. Model Download Issues:
 
@@ -367,13 +363,6 @@ csv_data = result.extract_csv()
 print(csv_data)
 ```
 
-**Requirements for enhanced JSON (if using cpu=True):**
-
-- Install: `pip install 'docstrange[local-llm]'`
-- [Install Ollama](https://ollama.ai/) and run: `ollama serve`
-- Pull a model: `ollama pull llama3.2`
-
-*If Ollama is not available, the library automatically falls back to the standard JSON parser.*
 
 **c. Extract Specific Fields & Structured Data**
 
@@ -484,11 +473,6 @@ contract_schema = {
 contract_data = contract.extract_data(json_schema=contract_schema)
 ```
 
-**Local extraction requirements (if using cpu=True):**
-
-- Install ollama package: `pip install 'docstrange[local-llm]'`
-- [Install Ollama](https://ollama.ai/) and run: `ollama serve`
-- Pull a model: `ollama pull llama3.2`
 
 **e. Chain with LLM**
 
@@ -591,7 +575,6 @@ docstrange document.pdf
 docstrange document.pdf --api-key YOUR_API_KEY
 
 # Local processing modes
-docstrange document.pdf --cpu-mode
 docstrange document.pdf --gpu-mode
 
 # Different output formats
@@ -629,8 +612,6 @@ docstrange document.pdf --output json --extract-fields title author date summary
 # Or use API key for 10k docs/month access (alternative to login)
 docstrange document.pdf --api-key YOUR_API_KEY --output json --extract-fields title author date summary
 
-# Force local processing with field extraction (requires Ollama)
-docstrange document.pdf --cpu-mode --output json --extract-fields key_points conclusions recommendations
 ```
 
 **Example schema.json file:**

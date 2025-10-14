@@ -182,9 +182,6 @@ Examples:
   # Convert with free API key with increased limits
   docstrange document.pdf --api-key YOUR_API_KEY
 
-  # Force local CPU processing
-  docstrange document.pdf --cpu-mode
-
   # Force local GPU processing  
   docstrange document.pdf --gpu-mode
 
@@ -207,10 +204,10 @@ docstrange document.pdf --model nanonets --output csv
   # Convert multiple files
   docstrange file1.pdf file2.docx file3.xlsx --output markdown
 
-  # Extract specific fields using Ollama (CPU mode only) or cloud
+  # Extract specific fields using cloud processing
   docstrange invoice.pdf --output json --extract-fields invoice_number total_amount vendor_name
 
-  # Extract using JSON schema (Ollama for CPU mode, cloud for default mode)
+  # Extract using JSON schema with cloud processing
   docstrange document.pdf --output json --json-schema schema.json
 
   # Save output to file
@@ -243,12 +240,6 @@ docstrange document.pdf --model nanonets --output csv
     
     # Processing mode arguments
     parser.add_argument(
-        "--cpu-mode",
-        action="store_true",
-        help="Force local CPU-only processing (disables cloud mode)"
-    )
-    
-    parser.add_argument(
         "--gpu-mode", 
         action="store_true",
         help="Force local GPU processing (disables cloud mode, requires GPU)"
@@ -280,12 +271,12 @@ docstrange document.pdf --model nanonets --output csv
     parser.add_argument(
         "--extract-fields",
         nargs="+",
-        help="Extract specific fields using Ollama (CPU mode) or cloud (default mode) (e.g., --extract-fields invoice_number total_amount)"
+        help="Extract specific fields using cloud processing (e.g., --extract-fields invoice_number total_amount)"
     )
     
     parser.add_argument(
         "--json-schema",
-        help="JSON schema file for structured extraction using Ollama (CPU mode) or cloud (default mode)"
+        help="JSON schema file for structured extraction using cloud processing"
     )
     
     parser.add_argument(
@@ -361,7 +352,6 @@ docstrange document.pdf --model nanonets --output csv
         extractor = DocumentExtractor(
             api_key=args.api_key,
             model=args.model,
-            cpu=args.cpu_mode,
             gpu=args.gpu_mode
         )
         print_supported_formats(extractor)
@@ -404,12 +394,11 @@ docstrange document.pdf --model nanonets --output csv
     extractor = DocumentExtractor(
         api_key=args.api_key,
         model=args.model,
-        cpu=args.cpu_mode,
         gpu=args.gpu_mode
     )
     
     if args.verbose:
-        mode = "local" if (args.cpu_mode or args.gpu_mode) else "cloud"
+        mode = "local" if args.gpu_mode else "cloud"
         print(f"Initialized extractor in {mode} mode:")
         print(f"  - Output format: {args.output}")
         if mode == "cloud":
@@ -418,8 +407,7 @@ docstrange document.pdf --model nanonets --output csv
             if args.model:
                 print(f"  - Model: {args.model}")
         else:
-            processor_type = "GPU" if args.gpu_mode else "CPU"
-            print(f"  - Local processing: {processor_type}")
+            print(f"  - Local processing: GPU")
         print()
     
     # Process inputs

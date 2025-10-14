@@ -76,7 +76,7 @@ class ModelDownloader:
         if gpu_available:
             logger.info("GPU detected - including Nanonets OCR model")
         else:
-            logger.info("No GPU detected - skipping Nanonets OCR model (CPU-only mode)")
+            logger.info("No GPU detected - skipping Nanonets OCR model (cloud mode)")
         
         models_to_download = [
             ("Layout Model", self.LAYOUT_MODEL),

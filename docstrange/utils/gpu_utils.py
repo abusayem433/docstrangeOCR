@@ -71,9 +71,15 @@ def get_processor_preference() -> str:
     """Get the preferred processor type based on system capabilities.
     
     Returns:
-        'gpu' if GPU is available, 'cpu' otherwise
+        'gpu' if GPU is available
+        
+    Raises:
+        RuntimeError: If GPU is not available
     """
     if should_use_gpu_processor():
         return 'gpu'
     else:
-        return 'cpu' 
+        raise RuntimeError(
+            "GPU is not available. Please ensure CUDA is installed and a compatible GPU is present, "
+            "or use cloud processing mode."
+        ) 

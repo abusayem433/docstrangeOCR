@@ -200,3 +200,5 @@ ENV/
 .playwright-mcp/
 
 examples/
+
+venv1/
