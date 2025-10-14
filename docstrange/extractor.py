@@ -34,7 +34,6 @@ class DocumentExtractor:
         ocr_enabled: bool = True,
         api_key: Optional[str] = None,
         model: Optional[str] = None,
-        cpu: bool = False,
         gpu: bool = False
     ):
         """Initialize the file extractor.
@@ -45,11 +44,10 @@ class DocumentExtractor:
             ocr_enabled: Whether to enable OCR for image and PDF processing
             api_key: API key for cloud processing (optional). Prefer 'docstrange login' for 10k docs/month; API key from https://app.nanonets.com/#/keys is an alternative
             model: Model to use for cloud processing (gemini, openapi) - only for cloud mode
-            cpu: Force local CPU-only processing (disables cloud mode)
             gpu: Force local GPU processing (disables cloud mode, requires GPU)
         
         Note:
-            - Cloud mode is the default unless cpu or gpu is specified
+            - Cloud mode is the default unless gpu is specified
             - Without login or API key, limited calls per day
             - For 10k docs/month, run 'docstrange login' (recommended) or use an API key from https://app.nanonets.com/#/keys
         """
@@ -57,23 +55,17 @@ class DocumentExtractor:
         self.include_images = include_images
         self.api_key = api_key
         self.model = model
-        self.cpu = cpu
         self.gpu = gpu
         
         # Determine processing mode
-        # Cloud mode is default unless CPU/GPU preference is explicitly set
-        self.cloud_mode = not (self.cpu or self.gpu)
-        
-        # Validate CPU/GPU preferences
-        if self.cpu and self.gpu:
-            raise ValueError("Cannot specify both cpu and gpu. Choose one or neither.")
+        # Cloud mode is default unless GPU preference is explicitly set
+        self.cloud_mode = not self.gpu
         
         # Check GPU availability if GPU preference is set
         if self.gpu and not should_use_gpu_processor():
             raise RuntimeError(
                 "GPU preference specified but no GPU is available. "
-                "Please ensure CUDA is installed and a compatible GPU is present, "
-                "or use cpu=True for CPU-only processing."
+                "Please ensure CUDA is installed and a compatible GPU is present."
             )
         
         # Default to True if not explicitly set
@@ -157,7 +149,7 @@ class DocumentExtractor:
             return False
     
     def _setup_local_processors(self):
-        """Setup local processors based on CPU/GPU preferences."""
+        """Setup local processors based on GPU preferences."""
         local_processors = [
             PDFProcessor(preserve_layout=self.preserve_layout, include_images=self.include_images, ocr_enabled=self.ocr_enabled),
             DOCXProcessor(preserve_layout=self.preserve_layout, include_images=self.include_images),
@@ -169,19 +161,11 @@ class DocumentExtractor:
             URLProcessor(preserve_layout=self.preserve_layout, include_images=self.include_images),
         ]
         
-        # Add GPU processor based on preferences and availability
-        gpu_available = should_use_gpu_processor()
-        
-        if self.cpu:
-            logger.info("CPU preference specified - using CPU-based processors only")
-        elif self.gpu:
-            if gpu_available:
-                logger.info("GPU preference specified - adding GPU processor with Nanonets OCR")
-                gpu_processor = GPUProcessor(preserve_layout=self.preserve_layout, include_images=self.include_images, ocr_enabled=self.ocr_enabled)
-                local_processors.append(gpu_processor)
-            else:
-                # This should not happen due to validation in __init__, but just in case
-                raise RuntimeError("GPU preference specified but no GPU is available")
+        # Add GPU processor if GPU preference is specified
+        if self.gpu:
+            logger.info("GPU preference specified - adding GPU processor with Nanonets OCR")
+            gpu_processor = GPUProcessor(preserve_layout=self.preserve_layout, include_images=self.include_images, ocr_enabled=self.ocr_enabled)
+            local_processors.append(gpu_processor)
         
         self.processors.extend(local_processors)
     
@@ -312,14 +296,12 @@ class DocumentExtractor:
         """
         if self.cloud_mode and self.api_key:
             return "cloud"
-        elif self.cpu:
-            return "cpu_forced"
         elif self.gpu:
             return "gpu_forced"
         elif should_use_gpu_processor():
             return "gpu_auto"
         else:
-            return "cpu_auto"
+            return "cloud"
     
     def _get_processor(self, file_path: str):
         """Get the appropriate processor for the file.
@@ -340,7 +322,7 @@ class DocumentExtractor:
         gpu_available = should_use_gpu_processor()
         
         # Try GPU processor only if format is supported AND (gpu OR auto-gpu)
-        if not self.cpu and ext in gpu_supported_formats and (self.gpu or (gpu_available and not self.gpu)):
+        if ext in gpu_supported_formats and (self.gpu or (gpu_available and not self.gpu)):
             for processor in self.processors:
                 if isinstance(processor, GPUProcessor):
                     if self.gpu:
@@ -349,7 +331,7 @@ class DocumentExtractor:
                         logger.info(f"Using GPU processor with Nanonets OCR for {file_path} (GPU available and format supported)")
                     return processor
         
-        # Fallback to normal processor selection (CPU processors)
+        # Fallback to normal processor selection
         for processor in self.processors:
             if processor.can_process(file_path):
                 # Skip GPU processor in fallback mode to avoid infinite loops

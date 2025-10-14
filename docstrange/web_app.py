@@ -35,9 +35,9 @@ def download_models():
         # Download GPU models
         extractor = DocumentExtractor(gpu=True)
     else:
-        print("💻 GPU not available - downloading CPU models only")
-        # Download CPU models only
-        extractor = DocumentExtractor(cpu=True)
+        print("💻 GPU not available - using cloud processing")
+        # Use cloud processing when GPU is not available
+        extractor = DocumentExtractor()
     
     # Test extraction to trigger model downloads
     print("📥 Downloading models...")
@@ -64,10 +64,10 @@ def create_extractor_with_mode(processing_mode):
     """Create DocumentExtractor with proper error handling for processing mode."""
     if processing_mode == 'gpu':
         if not check_gpu_availability():
-            raise ValueError("GPU mode selected but GPU is not available. Please install PyTorch with CUDA support or use CPU mode.")
+            raise ValueError("GPU mode selected but GPU is not available. Please install PyTorch with CUDA support.")
         return DocumentExtractor(gpu=True)
-    else:  # cpu mode (default)
-        return DocumentExtractor(cpu=True)
+    else:  # cloud mode (default)
+        return DocumentExtractor()
 
 # Initialize the document extractor
 extractor = DocumentExtractor()
@@ -182,9 +182,9 @@ def get_system_info():
     system_info = {
         'gpu_available': gpu_available,
         'processing_modes': {
-            'cpu': {
+            'cloud': {
                 'available': True,
-                'description': 'Process locally using CPU. Works offline, slower but private.'
+                'description': 'Process using cloud API. Fast and requires no local setup.'
             },
             'gpu': {
                 'available': gpu_available,
@@ -197,6 +197,25 @@ def get_system_info():
 
 def run_web_app(host='0.0.0.0', port=8000, debug=False):
     """Run the web application."""
+    # Check GPU availability before starting the server
+    print("🔍 Checking GPU availability...")
+    gpu_available = check_gpu_availability()
+    
+    if not gpu_available:
+        error_msg = (
+            "❌ GPU is not available! DocStrange requires GPU for optimal performance.\n"
+            "Please ensure:\n"
+            "1. CUDA is installed on your system\n"
+            "2. PyTorch with CUDA support is installed\n"
+            "3. A compatible NVIDIA GPU is present\n\n"
+            "To install PyTorch with CUDA support, run:\n"
+            "pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118\n\n"
+            "Alternatively, you can use cloud processing mode by modifying the configuration."
+        )
+        print(error_msg)
+        raise RuntimeError("GPU is not available. DocStrange requires GPU for optimal performance.")
+    
+    print("✅ GPU detected - proceeding with model download...")
     print("🔄 Downloading models before starting the web interface...")
     download_models()
     print(f"✅ Starting docstrange web interface at http://{host}:{port}")

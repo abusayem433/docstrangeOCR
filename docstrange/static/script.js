@@ -25,53 +25,8 @@ class DocStrangeApp {
     }
 
     updateProcessingModeOptions(systemInfo) {
-        const gpuOption = document.querySelector('input[name="processingMode"][value="gpu"]');
-        const gpuLabel = gpuOption?.closest('.radio-option');
-        const gpuWarning = document.getElementById('gpuWarning');
-        
-        if (gpuLabel) {
-            if (!systemInfo.gpu_available) {
-                // Show warning message
-                if (gpuWarning) {
-                    gpuWarning.style.display = 'block';
-                }
-                
-                // Disable GPU option if not available
-                gpuOption.disabled = true;
-                gpuLabel.classList.add('disabled');
-                
-                // Update description
-                const description = gpuLabel.querySelector('.radio-description');
-                if (description) {
-                    description.textContent = systemInfo.processing_modes.gpu.description;
-                    description.style.color = '#D02B2B';
-                }
-                
-                // If GPU was selected, switch to CPU
-                if (gpuOption.checked) {
-                    const cpuOption = document.querySelector('input[name="processingMode"][value="cpu"]');
-                    if (cpuOption) {
-                        cpuOption.checked = true;
-                    }
-                }
-            } else {
-                // Hide warning message
-                if (gpuWarning) {
-                    gpuWarning.style.display = 'none';
-                }
-                
-                // Enable GPU option if available
-                gpuOption.disabled = false;
-                gpuLabel.classList.remove('disabled');
-                
-                // Update description
-                const description = gpuLabel.querySelector('.radio-description');
-                if (description) {
-                    description.textContent = systemInfo.processing_modes.gpu.description;
-                    description.style.color = '';
-                }
-            }
-        }
+        // Processing mode is now handled automatically - cloud by default, GPU if available and selected
+        // No UI changes needed as processing mode selection has been removed
     }
 
     initializeEventListeners() {
@@ -211,9 +166,8 @@ class DocStrangeApp {
             const outputFormat = document.querySelector('input[name="outputFormat"]:checked').value;
             formData.append('output_format', outputFormat);
 
-            // Get selected processing mode
-            const processingMode = document.querySelector('input[name="processingMode"]:checked').value;
-            formData.append('processing_mode', processingMode);
+            // Use cloud processing mode by default
+            formData.append('processing_mode', 'cloud');
 
             const response = await fetch('/api/extract', {
                 method: 'POST',
@@ -229,7 +183,7 @@ class DocStrangeApp {
                 
                 // Handle specific GPU errors
                 if (errorMessage.includes('GPU') && errorMessage.includes('not available')) {
-                    this.showError('GPU mode is not available. Please select CPU mode instead.');
+                    this.showError('GPU mode is not available. Please install PyTorch with CUDA support or use cloud processing.');
                 } else {
                     this.showError(errorMessage);
                 }
