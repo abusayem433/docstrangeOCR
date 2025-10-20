@@ -105,12 +105,12 @@ def handle_login(force_reauth: bool = False) -> int:
     try:
         from .services.auth_service import get_authenticated_token
         
-        print("\n🔐 DocStrange Authentication")
+        print("\nDocStrange Authentication")
         print("=" * 50)
         
         token = get_authenticated_token(force_reauth=force_reauth)
         if token:
-            print("✅ Authentication successful!")
+            print("Authentication successful!")
             
             # Get cached credentials to show user info
             try:
@@ -119,29 +119,29 @@ def handle_login(force_reauth: bool = False) -> int:
                 cached_creds = auth_service.get_cached_credentials()
                 
                 if cached_creds and cached_creds.get('auth0_direct'):
-                    print(f"👤 Logged in as: {cached_creds.get('user_email', 'Unknown')}")
-                    print(f"👤 Name: {cached_creds.get('user_name', 'Unknown')}")
-                    print(f"🔐 Via: Auth0 Google Login")
-                    print(f"🔑 Access Token: {token[:12]}...{token[-4:]}")
-                    print("💾 Credentials cached securely")
+                    print(f"Logged in as: {cached_creds.get('user_email', 'Unknown')}")
+                    print(f"Name: {cached_creds.get('user_name', 'Unknown')}")
+                    print(f"Via: Auth0 Google Login")
+                    print(f"Access Token: {token[:12]}...{token[-4:]}")
+                    print("Credentials cached securely")
                 else:
-                    print(f"🔑 Access Token: {token[:12]}...{token[-4:]}")
-                    print("💾 Credentials cached securely")
+                    print(f"Access Token: {token[:12]}...{token[-4:]}")
+                    print("Credentials cached securely")
             except:
-                print(f"🔑 Access Token: {token[:12]}...{token[-4:]}")
-                print("💾 Credentials cached securely")
+                print(f"Access Token: {token[:12]}...{token[-4:]}")
+                print("Credentials cached securely")
             
-            print("\n💡 You can now use DocStrange cloud features without specifying --api-key")
-            print("🌐 Your CLI is authenticated with the same Google account used on docstrange.nanonets.com")
+            print("\nYou can now use DocStrange cloud features without specifying --api-key")
+            print("Your CLI is authenticated with the same Google account used on docstrange.nanonets.com")
             return 0
         else:
-            print("❌ Authentication failed.")
+            print("Authentication failed.")
             return 1
     except ImportError:
-        print("❌ Authentication service not available.", file=sys.stderr)
+        print("Authentication service not available.", file=sys.stderr)
         return 1
     except Exception as e:
-        print(f"❌ Authentication error: {e}", file=sys.stderr)
+        print(f"Authentication error: {e}", file=sys.stderr)
         return 1
 
 
@@ -151,14 +151,14 @@ def handle_logout() -> int:
         from .services.auth_service import clear_auth
         
         clear_auth()
-        print("✅ Logged out successfully.")
-        print("💾 Cached authentication credentials cleared.")
+        print("Logged out successfully.")
+        print("Cached authentication credentials cleared.")
         return 0
     except ImportError:
-        print("❌ Authentication service not available.", file=sys.stderr)
+        print("Authentication service not available.", file=sys.stderr)
         return 1
     except Exception as e:
-        print(f"❌ Error clearing credentials: {e}", file=sys.stderr)
+        print(f"Error clearing credentials: {e}", file=sys.stderr)
         return 1
 
 
@@ -373,7 +373,7 @@ docstrange document.pdf --model nanonets --output csv
             run_web_app(host='0.0.0.0', port=8000, debug=False)
             return 0
         except ImportError:
-            print("❌ Web interface not available. Install Flask: pip install Flask", file=sys.stderr)
+            print("Web interface not available. Install Flask: pip install Flask", file=sys.stderr)
             return 1
     
     # Handle login flags

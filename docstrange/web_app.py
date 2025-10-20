@@ -198,27 +198,21 @@ def get_system_info():
 def run_web_app(host='0.0.0.0', port=8000, debug=False):
     """Run the web application."""
     # Check GPU availability before starting the server
-    print("🔍 Checking GPU availability...")
+    # Avoid Unicode emojis for Windows consoles (cp1252)
+    print("Checking GPU availability...")
     gpu_available = check_gpu_availability()
     
-    if not gpu_available:
-        error_msg = (
-            "❌ GPU is not available! DocStrange requires GPU for optimal performance.\n"
-            "Please ensure:\n"
-            "1. CUDA is installed on your system\n"
-            "2. PyTorch with CUDA support is installed\n"
-            "3. A compatible NVIDIA GPU is present\n\n"
-            "To install PyTorch with CUDA support, run:\n"
-            "pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118\n\n"
-            "Alternatively, you can use cloud processing mode by modifying the configuration."
+    if gpu_available:
+        print("GPU detected - proceeding with model download...")
+        print("Downloading models before starting the web interface...")
+        download_models()
+    else:
+        print(
+            "GPU not available — starting the web interface with cloud processing enabled.\n"
+            "You can still convert documents; enable a GPU later for local processing."
         )
-        print(error_msg)
-        raise RuntimeError("GPU is not available. DocStrange requires GPU for optimal performance.")
     
-    print("✅ GPU detected - proceeding with model download...")
-    print("🔄 Downloading models before starting the web interface...")
-    download_models()
-    print(f"✅ Starting docstrange web interface at http://{host}:{port}")
+    print(f"Starting docstrange web interface at http://{host}:{port}")
     print("Press Ctrl+C to stop the server")
     app.run(host=host, port=port, debug=debug)
 
