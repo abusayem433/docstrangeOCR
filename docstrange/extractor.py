@@ -13,7 +13,6 @@ from .processors import (
     HTMLProcessor,
     PPTXProcessor,
     ImageProcessor,
-    CloudProcessor,
     GPUProcessor,
 )
 from .result import ConversionResult
@@ -34,37 +33,36 @@ class DocumentExtractor:
         ocr_enabled: bool = True,
         api_key: Optional[str] = None,
         model: Optional[str] = None,
-        gpu: bool = False
+        gpu: bool = True
     ):
-        """Initialize the file extractor.
+        """Initialize the file extractor for LOCAL GPU processing only.
         
         Args:
             preserve_layout: Whether to preserve document layout
             include_images: Whether to include images in output
             ocr_enabled: Whether to enable OCR for image and PDF processing
-            api_key: API key for cloud processing (optional). Prefer 'docstrange login' for 10k docs/month; API key from https://app.nanonets.com/#/keys is an alternative
-            model: Model to use for cloud processing (gemini, openapi) - only for cloud mode
-            gpu: Force local GPU processing (disables cloud mode, requires GPU)
+            api_key: DEPRECATED - No longer used (local processing only)
+            model: DEPRECATED - No longer used (local processing only)
+            gpu: Force local GPU processing (default: True)
         
         Note:
-            - Cloud mode is the default unless gpu is specified
-            - Without login or API key, limited calls per day
-            - For 10k docs/month, run 'docstrange login' (recommended) or use an API key from https://app.nanonets.com/#/keys
+            - LOCAL GPU processing is now the default and only mode
+            - All processing happens locally on your GPU
+            - No cloud dependencies or API calls
         """
         self.preserve_layout = preserve_layout
         self.include_images = include_images
-        self.api_key = api_key
-        self.model = model
-        self.gpu = gpu
+        self.api_key = None  # Disabled for local-only mode
+        self.model = None    # Disabled for local-only mode
+        self.gpu = True      # Always use GPU for local processing
         
-        # Determine processing mode
-        # Cloud mode is default unless GPU preference is explicitly set
-        self.cloud_mode = not self.gpu
+        # Force local processing mode
+        self.cloud_mode = False
         
-        # Check GPU availability if GPU preference is set
-        if self.gpu and not should_use_gpu_processor():
+        # Check GPU availability - required for local processing
+        if not should_use_gpu_processor():
             raise RuntimeError(
-                "GPU preference specified but no GPU is available. "
+                "GPU is required for local processing but not available. "
                 "Please ensure CUDA is installed and a compatible GPU is present."
             )
         
@@ -74,82 +72,13 @@ class DocumentExtractor:
         else:
             self.ocr_enabled = ocr_enabled
         
-        # Try to get API key from environment if not provided
-        if self.cloud_mode and not self.api_key:
-            self.api_key = os.environ.get('NANONETS_API_KEY')
-            
-            # If still no API key, try to get from cached credentials
-            if not self.api_key:
-                try:
-                    from .services.auth_service import get_authenticated_token
-                    cached_token = get_authenticated_token(force_reauth=False)
-                    if cached_token:
-                        self.api_key = cached_token
-                        logger.info("Using cached authentication credentials")
-                except ImportError:
-                    logger.debug("Authentication service not available")
-                except Exception as e:
-                    logger.warning(f"Could not retrieve cached credentials: {e}")
-        
-        # Initialize processors
+        # Initialize local processors only
         self.processors = []
-        
-        if self.cloud_mode:
-            # Cloud mode setup
-            cloud_processor = CloudProcessor(
-                api_key=self.api_key,  # Can be None for rate-limited access
-                model_type=self.model,
-                preserve_layout=preserve_layout,
-                include_images=include_images
-            )
-            self.processors.append(cloud_processor)
-            
-            if self.api_key:
-                logger.info("Cloud processing enabled with authenticated access (10k docs/month)")
-            else:
-                logger.info("Cloud processing enabled without authentication (limited free calls). Run 'docstrange login' for 10k docs/month free calls or pass api_key.")
-                # logger.warning("For increased limits , provide an API key from https://app.nanonets.com/#/keys" for free)
-        else:
-            # Local mode setup
-            logger.info("Local processing mode enabled")
-            self._setup_local_processors()
-    
-    def authenticate(self, force_reauth: bool = False) -> bool:
-        """
-        Perform browser-based authentication and update API key.
-        
-        Args:
-            force_reauth: Force re-authentication even if cached credentials exist
-            
-        Returns:
-            True if authentication successful, False otherwise
-        """
-        try:
-            from .services.auth_service import get_authenticated_token
-            
-            token = get_authenticated_token(force_reauth=force_reauth)
-            if token:
-                self.api_key = token
-                
-                # Update cloud processor if it exists
-                for processor in self.processors:
-                    if hasattr(processor, 'api_key'):
-                        processor.api_key = token
-                        logger.info("Updated processor with new authentication token")
-                
-                return True
-            else:
-                return False
-                
-        except ImportError:
-            logger.error("Authentication service not available")
-            return False
-        except Exception as e:
-            logger.error(f"Authentication failed: {e}")
-            return False
+        logger.info("Local GPU processing mode enabled - no cloud dependencies")
+        self._setup_local_processors()
     
     def _setup_local_processors(self):
-        """Setup local processors based on GPU preferences."""
+        """Setup local processors for GPU processing only."""
         local_processors = [
             PDFProcessor(preserve_layout=self.preserve_layout, include_images=self.include_images, ocr_enabled=self.ocr_enabled),
             DOCXProcessor(preserve_layout=self.preserve_layout, include_images=self.include_images),
@@ -161,11 +90,10 @@ class DocumentExtractor:
             URLProcessor(preserve_layout=self.preserve_layout, include_images=self.include_images),
         ]
         
-        # Add GPU processor if GPU preference is specified
-        if self.gpu:
-            logger.info("GPU preference specified - adding GPU processor with Nanonets OCR")
-            gpu_processor = GPUProcessor(preserve_layout=self.preserve_layout, include_images=self.include_images, ocr_enabled=self.ocr_enabled)
-            local_processors.append(gpu_processor)
+        # Always add GPU processor for enhanced OCR capabilities
+        logger.info("Adding GPU processor with Nanonets OCR for enhanced processing")
+        gpu_processor = GPUProcessor(preserve_layout=self.preserve_layout, include_images=self.include_images, ocr_enabled=self.ocr_enabled)
+        local_processors.append(gpu_processor)
         
         self.processors.extend(local_processors)
     
@@ -197,7 +125,7 @@ class DocumentExtractor:
         return processor.process(file_path)
     
     def convert_with_output_type(self, file_path: str, output_type: str) -> ConversionResult:
-        """Convert a file with specific output type for cloud processing.
+        """Convert a file with specific output type using local GPU processing.
         
         Args:
             file_path: Path to the file to extract
@@ -214,24 +142,12 @@ class DocumentExtractor:
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"File not found: {file_path}")
         
-        # For cloud mode, create a processor with the specific output type
-        if self.cloud_mode and self.api_key:
-            cloud_processor = CloudProcessor(
-                api_key=self.api_key,
-                output_type=output_type,
-                model_type=self.model,   # Pass model as model_type
-                preserve_layout=self.preserve_layout,
-                include_images=self.include_images
-            )
-            if cloud_processor.can_process(file_path):
-                logger.info(f"Using cloud processor with output_type={output_type} for {file_path}")
-                return cloud_processor.process(file_path)
-        
-        # Fallback to regular conversion for local mode
+        # Use local GPU processing for all conversions
+        logger.info(f"Using local GPU processing with output_type={output_type} for {file_path}")
         return self.extract(file_path)
     
     def extract_url(self, url: str) -> ConversionResult:
-        """Convert a URL to internal format.
+        """Convert a URL to internal format using local processing.
         
         Args:
             url: URL to extract
@@ -242,10 +158,6 @@ class DocumentExtractor:
         Raises:
             ConversionError: If conversion fails
         """
-        # Cloud mode doesn't support URL conversion
-        if self.cloud_mode:
-            raise ConversionError("URL conversion is not supported in cloud mode. Use local mode for URL processing.")
-        
         # Find the URL processor
         url_processor = None
         for processor in self.processors:
@@ -256,11 +168,11 @@ class DocumentExtractor:
         if not url_processor:
             raise ConversionError("URL processor not available")
         
-        logger.info(f"Converting URL: {url}")
+        logger.info(f"Converting URL using local processing: {url}")
         return url_processor.process(url)
     
     def extract_text(self, text: str) -> ConversionResult:
-        """Convert plain text to internal format.
+        """Convert plain text to internal format using local processing.
         
         Args:
             text: Plain text to extract
@@ -268,14 +180,11 @@ class DocumentExtractor:
         Returns:
             ConversionResult containing the processed content
         """
-        # Cloud mode doesn't support text conversion
-        if self.cloud_mode:
-            raise ConversionError("Text conversion is not supported in cloud mode. Use local mode for text processing.")
-        
         metadata = {
             "content_type": "text",
             "processor": "TextConverter",
-            "preserve_layout": self.preserve_layout
+            "preserve_layout": self.preserve_layout,
+            "processing_mode": "local_gpu"
         }
         
         return ConversionResult(text, metadata)
@@ -284,9 +193,9 @@ class DocumentExtractor:
         """Check if cloud processing is enabled and configured.
         
         Returns:
-            True if cloud processing is available
+            False - Local GPU processing only
         """
-        return self.cloud_mode and bool(self.api_key)
+        return False
     
     def get_processing_mode(self) -> str:
         """Get the current processing mode.
@@ -294,17 +203,10 @@ class DocumentExtractor:
         Returns:
             String describing the current processing mode
         """
-        if self.cloud_mode and self.api_key:
-            return "cloud"
-        elif self.gpu:
-            return "gpu_forced"
-        elif should_use_gpu_processor():
-            return "gpu_auto"
-        else:
-            return "cloud"
+        return "local_gpu"
     
     def _get_processor(self, file_path: str):
-        """Get the appropriate processor for the file.
+        """Get the appropriate processor for the file, prioritizing GPU processing.
         
         Args:
             file_path: Path to the file
@@ -318,20 +220,14 @@ class DocumentExtractor:
         # Check file extension
         _, ext = os.path.splitext(file_path.lower())
         
-        # Check if GPU processor should be used for this file type
-        gpu_available = should_use_gpu_processor()
-        
-        # Try GPU processor only if format is supported AND (gpu OR auto-gpu)
-        if ext in gpu_supported_formats and (self.gpu or (gpu_available and not self.gpu)):
+        # Always try GPU processor first for supported formats
+        if ext in gpu_supported_formats:
             for processor in self.processors:
                 if isinstance(processor, GPUProcessor):
-                    if self.gpu:
-                        logger.info(f"Using GPU processor with Nanonets OCR for {file_path} (GPU preference specified)")
-                    else:
-                        logger.info(f"Using GPU processor with Nanonets OCR for {file_path} (GPU available and format supported)")
+                    logger.info(f"Using GPU processor with Nanonets OCR for {file_path}")
                     return processor
         
-        # Fallback to normal processor selection
+        # Fallback to other processors for non-GPU formats
         for processor in self.processors:
             if processor.can_process(file_path):
                 # Skip GPU processor in fallback mode to avoid infinite loops
@@ -368,9 +264,7 @@ class DocumentExtractor:
                     formats.extend(['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.webp', '.gif'])
                 elif isinstance(processor, URLProcessor):
                     formats.append('URLs')
-                elif isinstance(processor, CloudProcessor):
-                    # Cloud processor supports many formats, but we don't want duplicates
-                    pass
+                # Cloud processor removed - local processing only
                 elif isinstance(processor, GPUProcessor):
                     # GPU processor supports all image formats and PDFs
                     formats.extend(['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.webp', '.gif', '.pdf'])

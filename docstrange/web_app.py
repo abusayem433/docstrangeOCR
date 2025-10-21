@@ -25,22 +25,23 @@ def check_gpu_availability():
 
 def download_models():
     """Download models synchronously before starting the app."""
-    print("🔄 Starting model download...")
+    print("Starting model download for local GPU processing...")
     
     # Check GPU availability
     gpu_available = check_gpu_availability()
     
-    if gpu_available:
-        print("🚀 GPU detected - downloading GPU models")
-        # Download GPU models
-        extractor = DocumentExtractor(gpu=True)
-    else:
-        print("💻 GPU not available - using cloud processing")
-        # Use cloud processing when GPU is not available
-        extractor = DocumentExtractor()
+    if not gpu_available:
+        raise RuntimeError(
+            "GPU is required for local processing but not available. "
+            "Please ensure CUDA is installed and a compatible GPU is present."
+        )
+    
+    print("GPU detected - downloading GPU models for local processing")
+    # Download GPU models for local processing
+    extractor = DocumentExtractor(gpu=True)
     
     # Test extraction to trigger model downloads
-    print("📥 Downloading models...")
+    print("Downloading models...")
     
     # Create a simple test file to trigger model downloads
     test_content = "Test document for model download."
@@ -51,9 +52,9 @@ def download_models():
     try:
         # This will trigger model downloads
         result = extractor.extract(test_file_path)
-        print("✅ Model download completed successfully")
+        print("Model download completed successfully")
     except Exception as e:
-        print(f"⚠️ Model download warning: {e}")
+        print(f"Model download warning: {e}")
         # Don't fail completely, just log the warning
     finally:
         # Clean up test file
@@ -61,16 +62,14 @@ def download_models():
             os.unlink(test_file_path)
 
 def create_extractor_with_mode(processing_mode):
-    """Create DocumentExtractor with proper error handling for processing mode."""
-    if processing_mode == 'gpu':
-        if not check_gpu_availability():
-            raise ValueError("GPU mode selected but GPU is not available. Please install PyTorch with CUDA support.")
-        return DocumentExtractor(gpu=True)
-    else:  # cloud mode (default)
-        return DocumentExtractor()
+    """Create DocumentExtractor for local GPU processing only."""
+    # Always use local GPU processing
+    if not check_gpu_availability():
+        raise ValueError("GPU is required for local processing but not available. Please install PyTorch with CUDA support.")
+    return DocumentExtractor(gpu=True)
 
-# Initialize the document extractor
-extractor = DocumentExtractor()
+# Initialize the document extractor lazily (will be created when needed)
+extractor = None
 
 @app.route('/')
 def index():
@@ -96,11 +95,11 @@ def extract_document():
         
         # Get parameters
         output_format = request.form.get('output_format', 'markdown')
-        processing_mode = request.form.get('processing_mode', 'cloud')
+        processing_mode = 'gpu'  # Always use GPU processing
         
-        # Create extractor based on processing mode
+        # Create extractor for local GPU processing
         try:
-            extractor = create_extractor_with_mode(processing_mode)
+            current_extractor = create_extractor_with_mode(processing_mode)
         except ValueError as e:
             return jsonify({'error': str(e)}), 400
         
@@ -111,7 +110,7 @@ def extract_document():
         
         try:
             # Extract content
-            result = extractor.extract(tmp_path)
+            result = current_extractor.extract(tmp_path)
             
             # Convert to requested format
             if output_format == 'markdown':
@@ -165,8 +164,12 @@ def extract_document():
 @app.route('/api/supported-formats')
 def get_supported_formats():
     """Get list of supported file formats."""
-    formats = extractor.get_supported_formats()
-    return jsonify({'formats': formats})
+    try:
+        current_extractor = create_extractor_with_mode('gpu')
+        formats = current_extractor.get_supported_formats()
+        return jsonify({'formats': formats})
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
 
 @app.route('/api/health')
 def health_check():
@@ -175,44 +178,47 @@ def health_check():
 
 @app.route('/api/system-info')
 def get_system_info():
-    """Get system information including GPU availability."""
+    """Get system information for local GPU processing."""
     gpu_available = check_gpu_availability()
+    
+    if not gpu_available:
+        return jsonify({
+            'error': 'GPU is required for local processing but not available. Please install PyTorch with CUDA support.',
+            'gpu_available': False
+        }), 400
     
     # Get additional system info
     system_info = {
         'gpu_available': gpu_available,
         'processing_modes': {
-            'cloud': {
+            'local_gpu': {
                 'available': True,
-                'description': 'Process using cloud API. Fast and requires no local setup.'
-            },
-            'gpu': {
-                'available': gpu_available,
-                'description': 'Process locally using GPU. Fastest local processing, requires CUDA.' if gpu_available else 'GPU not available. Install PyTorch with CUDA support.'
+                'description': 'Process locally using GPU. Fastest local processing, requires CUDA.'
             }
-        }
+        },
+        'local_processing_only': True,
+        'no_cloud_dependencies': True
     }
     
     return jsonify(system_info)
 
 def run_web_app(host='0.0.0.0', port=8000, debug=False):
-    """Run the web application."""
+    """Run the web application for local GPU processing."""
     # Check GPU availability before starting the server
-    # Avoid Unicode emojis for Windows consoles (cp1252)
-    print("Checking GPU availability...")
+    print("Checking GPU availability for local processing...")
     gpu_available = check_gpu_availability()
     
-    if gpu_available:
-        print("GPU detected - proceeding with model download...")
-        print("Downloading models before starting the web interface...")
-        download_models()
-    else:
-        print(
-            "GPU not available — starting the web interface with cloud processing enabled.\n"
-            "You can still convert documents; enable a GPU later for local processing."
-        )
+    if not gpu_available:
+        print("ERROR: GPU is required for local processing but not available.")
+        print("Please install PyTorch with CUDA support and ensure a compatible GPU is present.")
+        print("Installation: pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118")
+        return
     
-    print(f"Starting docstrange web interface at http://{host}:{port}")
+    print("GPU detected - starting local GPU processing web interface...")
+    print("Downloading models before starting the web interface...")
+    download_models()
+    
+    print(f"Starting docstrange LOCAL GPU web interface at http://{host}:{port}")
     print("Press Ctrl+C to stop the server")
     app.run(host=host, port=port, debug=debug)
 

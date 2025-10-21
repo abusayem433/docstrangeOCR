@@ -52,8 +52,6 @@ def process_single_input(extractor: DocumentExtractor, input_item: str, output_f
     try:
         # Check if it's a URL
         if input_item.startswith(('http://', 'https://')):
-            if extractor.cloud_mode:
-                raise ConversionError("URL processing is not supported in cloud mode. Use local mode for URLs.")
             result = extractor.extract_url(input_item)
             input_type = "URL"
         # Check if it's a file
@@ -62,8 +60,6 @@ def process_single_input(extractor: DocumentExtractor, input_item: str, output_f
             input_type = "File"
         # Treat as text
         else:
-            if extractor.cloud_mode:
-                raise ConversionError("Text processing is not supported in cloud mode. Use local mode for text.")
             result = extractor.extract_text(input_item)
             input_type = "Text"
         
@@ -100,122 +96,35 @@ def process_single_input(extractor: DocumentExtractor, input_item: str, output_f
         }
 
 
-def handle_login(force_reauth: bool = False) -> int:
-    """Handle login command."""
-    try:
-        from .services.auth_service import get_authenticated_token
-        
-        print("\nDocStrange Authentication")
-        print("=" * 50)
-        
-        token = get_authenticated_token(force_reauth=force_reauth)
-        if token:
-            print("Authentication successful!")
-            
-            # Get cached credentials to show user info
-            try:
-                from .services.auth_service import AuthService
-                auth_service = AuthService()
-                cached_creds = auth_service.get_cached_credentials()
-                
-                if cached_creds and cached_creds.get('auth0_direct'):
-                    print(f"Logged in as: {cached_creds.get('user_email', 'Unknown')}")
-                    print(f"Name: {cached_creds.get('user_name', 'Unknown')}")
-                    print(f"Via: Auth0 Google Login")
-                    print(f"Access Token: {token[:12]}...{token[-4:]}")
-                    print("Credentials cached securely")
-                else:
-                    print(f"Access Token: {token[:12]}...{token[-4:]}")
-                    print("Credentials cached securely")
-            except:
-                print(f"Access Token: {token[:12]}...{token[-4:]}")
-                print("Credentials cached securely")
-            
-            print("\nYou can now use DocStrange cloud features without specifying --api-key")
-            print("Your CLI is authenticated with the same Google account used on docstrange.nanonets.com")
-            return 0
-        else:
-            print("Authentication failed.")
-            return 1
-    except ImportError:
-        print("Authentication service not available.", file=sys.stderr)
-        return 1
-    except Exception as e:
-        print(f"Authentication error: {e}", file=sys.stderr)
-        return 1
-
-
-def handle_logout() -> int:
-    """Handle logout command."""
-    try:
-        from .services.auth_service import clear_auth
-        
-        clear_auth()
-        print("Logged out successfully.")
-        print("Cached authentication credentials cleared.")
-        return 0
-    except ImportError:
-        print("Authentication service not available.", file=sys.stderr)
-        return 1
-    except Exception as e:
-        print(f"Error clearing credentials: {e}", file=sys.stderr)
-        return 1
-
-
 def main():
-    """Main CLI function."""
+    """Main CLI function for local GPU processing."""
     parser = argparse.ArgumentParser(
-        description="Convert documents to LLM-ready formats with intelligent document processing",
+        description="Convert documents to LLM-ready formats using LOCAL GPU processing",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Authentication (browser-based login)
-  docstrange login                    # One-click browser login
-  docstrange login --reauth          # Force re-authentication
-  
   # Start web interface
   docstrange web                     # Start web interface at http://localhost:8000
   
-  # Convert a PDF to markdown (default cloud mode)
+  # Convert a PDF to markdown (local GPU processing)
   docstrange document.pdf
-
-  # Convert with free API key with increased limits
-  docstrange document.pdf --api-key YOUR_API_KEY
-
-  # Force local GPU processing  
-  docstrange document.pdf --gpu-mode
 
   # Convert to different output formats
   docstrange document.pdf --output html
   docstrange document.pdf --output json
   docstrange document.pdf --output csv  # Extract tables as CSV
 
-  # Use specific model for cloud processing
-docstrange document.pdf --model gemini
-docstrange document.pdf --model openapi --output json
-docstrange document.pdf --model nanonets --output csv
-
-  # Convert a URL (works in all modes)
+  # Convert a URL (local processing)
   docstrange https://example.com --output html
 
-  # Convert plain text (works in all modes)
+  # Convert plain text (local processing)
   docstrange "Hello world" --output json
 
   # Convert multiple files
   docstrange file1.pdf file2.docx file3.xlsx --output markdown
 
-  # Extract specific fields using cloud processing
-  docstrange invoice.pdf --output json --extract-fields invoice_number total_amount vendor_name
-
-  # Extract using JSON schema with cloud processing
-  docstrange document.pdf --output json --json-schema schema.json
-
   # Save output to file
   docstrange document.pdf --output-file output.md
-
-  # Use environment variable for API key
-  export NANONETS_API_KEY=your_api_key
-  docstrange document.pdf
 
   # List supported formats
   docstrange --list-formats
@@ -238,45 +147,12 @@ docstrange document.pdf --model nanonets --output csv
         help="Output format (default: markdown)"
     )
     
-    # Processing mode arguments
+    # Processing mode arguments - local GPU only
     parser.add_argument(
         "--gpu-mode", 
         action="store_true",
-        help="Force local GPU processing (disables cloud mode, requires GPU)"
-    )
-    
-    parser.add_argument(
-        "--api-key",
-        help="API key for increased cloud access (get it free from https://app.nanonets.com/#/keys)"
-    )
-    
-    parser.add_argument(
-        "--model",
-        choices=["gemini", "openapi", "nanonets"],
-        help="Model to use for cloud processing (gemini, openapi, nanonets)"
-    )
-    
-    parser.add_argument(
-        "--ollama-url",
-        default="http://localhost:11434",
-        help="Ollama server URL for local field extraction (default: http://localhost:11434)"
-    )
-    
-    parser.add_argument(
-        "--ollama-model",
-        default="llama3.2",
-        help="Ollama model for local field extraction (default: llama3.2)"
-    )
-    
-    parser.add_argument(
-        "--extract-fields",
-        nargs="+",
-        help="Extract specific fields using cloud processing (e.g., --extract-fields invoice_number total_amount)"
-    )
-    
-    parser.add_argument(
-        "--json-schema",
-        help="JSON schema file for structured extraction using cloud processing"
+        default=True,
+        help="Use local GPU processing (default: True, always enabled)"
     )
     
     parser.add_argument(
@@ -321,24 +197,6 @@ docstrange document.pdf --model nanonets --output csv
         help="Enable verbose output"
     )
     
-    parser.add_argument(
-        "--login",
-        action="store_true",
-        help="Perform browser-based authentication login"
-    )
-    
-    parser.add_argument(
-        "--reauth",
-        action="store_true", 
-        help="Force re-authentication (use with --login)"
-    )
-    
-    parser.add_argument(
-        "--logout",
-        action="store_true",
-        help="Clear cached authentication credentials"
-    )
-    
     args = parser.parse_args()
     
     # Handle version flag
@@ -349,25 +207,15 @@ docstrange document.pdf --model nanonets --output csv
     # Handle list formats flag
     if args.list_formats:
         # Create a extractor to get supported formats
-        extractor = DocumentExtractor(
-            api_key=args.api_key,
-            model=args.model,
-            gpu=args.gpu_mode
-        )
+        extractor = DocumentExtractor(gpu=True)
         print_supported_formats(extractor)
         return 0
-    
-    # Handle authentication commands
-    # Check if first argument is "login" command
-    if args.input and args.input[0] == "login":
-        force_reauth = "--reauth" in sys.argv
-        return handle_login(force_reauth)
     
     # Handle web command
     if args.input and args.input[0] == "web":
         try:
             from .web_app import run_web_app
-            print("Starting DocStrange web interface...")
+            print("Starting DocStrange LOCAL GPU web interface...")
             print("Open your browser and go to: http://localhost:8000")
             print("Press Ctrl+C to stop the server")
             run_web_app(host='0.0.0.0', port=8000, debug=False)
@@ -376,38 +224,22 @@ docstrange document.pdf --model nanonets --output csv
             print("Web interface not available. Install Flask: pip install Flask", file=sys.stderr)
             return 1
     
-    # Handle login flags
-    if args.login or args.logout:
-        if args.logout:
-            return handle_logout()
-        else:
-            return handle_login(args.reauth)
-    
     # Check if input is provided
     if not args.input:
         parser.error("No input specified. Please provide file(s), URL(s), or text to extract.")
     
-    # Cloud mode is default. Without login/API key it's limited calls.
-    # Use 'docstrange login' (recommended) or --api-key for 10k docs/month for free.
+    # Local GPU processing only - no cloud dependencies
     
-    # Initialize extractor
-    extractor = DocumentExtractor(
-        api_key=args.api_key,
-        model=args.model,
-        gpu=args.gpu_mode
-    )
+    # Initialize extractor for local GPU processing
+    extractor = DocumentExtractor(gpu=True)
     
     if args.verbose:
-        mode = "local" if args.gpu_mode else "cloud"
-        print(f"Initialized extractor in {mode} mode:")
+        print(f"Initialized extractor in local GPU mode:")
         print(f"  - Output format: {args.output}")
-        if mode == "cloud":
-            has_api_or_auth = bool(args.api_key or extractor.api_key)
-            print(f"  - Auth: {'authenticated (10k/month) free calls' if has_api_or_auth else 'not authenticated (limited free calls)'}")
-            if args.model:
-                print(f"  - Model: {args.model}")
-        else:
-            print(f"  - Local processing: GPU")
+        print(f"  - Preserve layout: {args.preserve_layout}")
+        print(f"  - Include images: {args.include_images}")
+        print(f"  - OCR enabled: {args.ocr_enabled}")
+        print(f"  - Processing mode: local_gpu")
         print()
     
     # Process inputs
