@@ -8,6 +8,7 @@ from typing import Optional, List, Dict, Any, Tuple
 from pathlib import Path
 from PIL import Image
 import numpy as np
+import torch
 
 # macOS-specific NumPy compatibility fix
 if platform.system() == "Darwin":
@@ -224,15 +225,17 @@ class NeuralDocumentProcessor:
             from docling_ibm_models.tableformer.data_management.tf_predictor import TFPredictor
             import easyocr
             
-            # Initialize layout model with CPU optimization for powerful CPU
+            # Initialize layout model with DYNAMIC memory management
             import torch
-            # Use CPU to utilize powerful CPU resources
+            import os
+            # Let PyTorch handle device placement dynamically
+            device = 'cuda' if torch.cuda.is_available() else 'cpu'
             self.layout_predictor = LayoutPredictor(
                 artifact_path=str(self.layout_model_path),
-                device='cpu',  # Use CPU for better utilization
-                num_threads=8  # Use more threads for powerful CPU
+                device=device,  # Let PyTorch decide optimal placement
+                num_threads=8  # Use full threading for CPU fallback
             )
-            logger.info(f"Layout predictor initialized on CPU with 8 threads")
+            logger.info(f"Layout predictor initialized with dynamic memory management on {device}")
             
             # Initialize table structure model with CPU optimization
             tm_config = read_config(str(self.table_model_path / "tm_config.json"))

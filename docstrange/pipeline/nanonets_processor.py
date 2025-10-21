@@ -5,6 +5,7 @@ import os
 from typing import Optional
 from pathlib import Path
 from PIL import Image
+import torch
 
 logger = logging.getLogger(__name__)
 
@@ -49,14 +50,14 @@ class NanonetsDocumentProcessor:
             
             logger.info(f"Loading Nanonets OCR model from local cache: {actual_model_path}")
             
-            # Load model with CPU-optimized processing for powerful CPU
+            # Load model with DYNAMIC memory management - let PyTorch handle it automatically
             self.model = AutoModelForImageTextToText.from_pretrained(
                 str(actual_model_path), 
-                torch_dtype="auto", 
-                device_map="cpu",  # Use CPU for main processing to utilize powerful CPU
+                torch_dtype=torch.float16,  # Use float16 for memory efficiency
+                device_map="auto",  # Let PyTorch decide optimal placement dynamically
                 local_files_only=True,  # Use only local files
-                low_cpu_mem_usage=False,  # Allow full CPU memory usage
-                max_memory={"cpu": "14GB"}  # Use most of your 16GB RAM
+                low_cpu_mem_usage=False,  # Allow dynamic CPU memory usage
+                offload_folder="./offload_cache"  # Dynamic offloading when needed
             )
             self.model.eval()
             
@@ -103,7 +104,7 @@ class NanonetsDocumentProcessor:
         return self.extract_text(image_path)
     
     def _extract_text_with_nanonets(self, image_path: str, max_new_tokens: int = 4096) -> str:
-        """Extract text using Nanonets OCR model optimized for powerful CPU."""
+        """Extract text using FULL machine utilization - both GPU and CPU."""
         try:
             import torch
             import gc
@@ -111,11 +112,17 @@ class NanonetsDocumentProcessor:
             
             prompt = """Extract the text from the above document as if you were reading it naturally. Return the tables in html format. Return the equations in LaTeX representation. If there is an image in the document and image caption is not present, add a small description of the image inside the <img></img> tag; otherwise, add the image caption inside <img></img>. Watermarks should be wrapped in brackets. Ex: <watermark>OFFICIAL COPY</watermark>. Page numbers should be wrapped in brackets. Ex: <page_number>14</page_number> or <page_number>9/22</page_number>. Prefer using ☐ and ☑ for check boxes."""
             
-            # Optimize for CPU processing
+            # Dynamic memory management - let PyTorch handle it automatically
             if torch.cuda.is_available():
+                # Clear GPU memory but don't set limits - let PyTorch manage dynamically
                 torch.cuda.empty_cache()
-                # Reserve minimal GPU for other processes
-                torch.cuda.set_per_process_memory_fraction(0.3)
+                torch.cuda.synchronize()
+                
+                # Force garbage collection
+                import gc
+                gc.collect()
+                
+                logger.info(f"Dynamic memory management enabled - PyTorch will handle GPU/CPU allocation automatically")
             
             # Force garbage collection
             gc.collect()
@@ -127,13 +134,13 @@ class NanonetsDocumentProcessor:
             
             image = Image.open(image_path)
             
-            # Keep higher resolution for better OCR quality with powerful CPU
-            max_size = 2048  # Increased for better quality with CPU processing
+            # Dynamic resolution - let system handle memory automatically
+            max_size = 1536  # Balanced resolution for dynamic processing
             if max(image.size) > max_size:
                 ratio = max_size / max(image.size)
                 new_size = (int(image.size[0] * ratio), int(image.size[1] * ratio))
                 image = image.resize(new_size, Image.Resampling.LANCZOS)
-                logger.info(f"Resized image to {new_size} for CPU-optimized processing")
+                logger.info(f"Resized image to {new_size} for full machine processing")
             
             messages = [
                 {"role": "system", "content": "You are a helpful assistant."},
@@ -146,15 +153,16 @@ class NanonetsDocumentProcessor:
             text = self.processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
             inputs = self.processor(text=[text], images=[image], padding=True, return_tensors="pt")
             
-            # Process on CPU to utilize powerful CPU
-            inputs = inputs.to("cpu")
-            logger.info(f"Processing on CPU to utilize powerful CPU resources")
+            # Dynamic device placement - let PyTorch decide where to process
+            device = next(self.model.parameters()).device
+            inputs = inputs.to(device)
+            logger.info(f"Dynamic processing on device: {device} - PyTorch managing memory automatically")
             
-            # Generate with CPU-optimized settings
+            # Generate with DYNAMIC settings - let PyTorch handle memory automatically
             with torch.no_grad():
                 output_ids = self.model.generate(
                     **inputs, 
-                    max_new_tokens=max_new_tokens, 
+                    max_new_tokens=4096,  # Let PyTorch handle memory dynamically
                     do_sample=True,  # Enable sampling for better quality
                     temperature=0.7,  # Balanced creativity
                     top_p=0.9,  # Nucleus sampling
@@ -162,23 +170,25 @@ class NanonetsDocumentProcessor:
                     repetition_penalty=1.1,  # Reduce repetition
                     pad_token_id=self.processor.tokenizer.eos_token_id,
                     use_cache=True,
-                    num_beams=2,  # Use beam search for better quality
-                    early_stopping=True
+                    num_beams=3,  # Let PyTorch optimize beam search dynamically
+                    early_stopping=True,
+                    max_length=4096  # Let PyTorch handle memory dynamically
                 )
             
             # Decode results
             generated_ids = [output_ids[len(input_ids):] for input_ids, output_ids in zip(inputs.input_ids, output_ids)]
             output_text = self.processor.batch_decode(generated_ids, skip_special_tokens=True, clean_up_tokenization_spaces=True)
             
-            # Clean up intermediate variables
+            # Dynamic cleanup - let PyTorch manage memory automatically
             del inputs, output_ids, generated_ids
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
+                torch.cuda.synchronize()
             
             # Force garbage collection
             gc.collect()
             
-            logger.info(f"Successfully extracted {len(output_text[0])} characters")
+            logger.info(f"Successfully extracted {len(output_text[0])} characters using dynamic memory management")
             return output_text[0]
             
         except Exception as e:
